@@ -7,7 +7,7 @@ Description:
     - UI for demonstration.
     
 Suzan Elmasry
-Feb 2026
+18. Feb 2026
 """
 
 import cv2
@@ -31,13 +31,11 @@ robot = None
 if xArm7:
     try:
         robot = xArm7(ROBOT_IP)
-        robot.motion_enable(True)
-        robot.set_mode(0)
-        robot.set_state(0)
+        robot.start_up()
         
         # Enable Gripper, speed min 1000, speed max 5000
-        robot.set_gripper_enable(True)
-        robot.set_gripper_speed(1000)
+        robot.arm.set_gripper_enable(True)
+        robot.arm.set_gripper_speed(1000)
         
         print(">>> SUCCESS: Robot & Gripper Connected!")
     except:
@@ -66,12 +64,16 @@ if robot:
         if pos:
             curr_x, curr_y, curr_z = pos[0], pos[1], pos[2]
     except: pass
+dt = 0.02
+v= 100
+step_size = v*dt
 
 # Main Control Loop (Repeats every frame)
 while cap.isOpened():
     success, image = cap.read()
     if not success: continue
     
+    start_timer = time.time()
     # Mirror View
     image = cv2.flip(image, 1)
     image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
@@ -114,33 +116,33 @@ while cap.isOpened():
             
             # 1. Index -> Move Forward (+X)
             if fingers == [0, 1, 0, 0, 0]:
-                curr_x += 5
+                curr_x += step_size 
                 command = "FORWARD"
                 
             # 2. Peace Sign -> Move Backward (-X)
             elif fingers == [0, 1, 1, 0, 0]:
-                curr_x -= 5
+                curr_x -= step_size 
                 command = "BACKWARD"
                 
             # 3. Pinky -> Move Right (-Y)
             elif fingers == [0, 0, 0, 0, 1]:
-                curr_y -= 5
+                curr_y -= step_size 
                 command = "RIGHT"
                 
             # 4. Thumb -> Move Left (+Y)
             elif fingers == [1, 0, 0, 0, 0]:
-                curr_y += 5
+                curr_y += step_size 
                 command = "LEFT"
                 
             # 5. Open Hand -> Open Gripper
             elif fingers == [1, 1, 1, 1, 1]:
                 command = "OPEN GRIPPER"
-                if robot: robot.set_gripper_position(850, wait=False)
+                if robot: robot.arm.set_gripper_position(850, wait=False)
                 
             # 6. Fist -> Close Gripper
             elif fingers == [0, 0, 0, 0, 0]:
                 command = "CLOSE GRIPPER"
-                if robot: robot.set_gripper_position(0, wait=False)
+                if robot: robot.arm.set_gripper_position(0, wait=False)
 
     # Safety Boundaries (The Safe Box) 
     if curr_x > 600: curr_x = 600
@@ -166,10 +168,16 @@ while cap.isOpened():
     cv2.putText(image, command, (20, 50), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 0, 255), 3)
     cv2.imshow("Robot Control Demo", image)
     
+    
+
     if cv2.waitKey(1) & 0xFF == ord('q'):  # Quit
         break
 
+    end_time = time.time() # loop timer 
+    # if end_time-start_timer<dt:
+    #     time.sleep(dt-(end_time-start_timer))
 
-# Close all the windows and camera properly to exit the program cleanly
+
+# Close all the windows and camera properly to exit the program 
 cap.release()
 cv2.destroyAllWindows()
